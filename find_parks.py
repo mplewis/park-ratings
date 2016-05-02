@@ -74,7 +74,7 @@ def process_parks(ways):
         data = {}
         data['name'] = way.tags['name']
         data['geojson'] = way_to_geojson_polygon(way)
-        data['area'] = area_of_way(way)
+        data['area'] = int(area_of_way(way))  # We don't care about fractions
         clean[way.id] = data
     return clean
 
