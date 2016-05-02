@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import overpy
 import pyprind
 
 import argparse
@@ -9,9 +10,8 @@ from collections import namedtuple
 from glob import glob
 from os.path import join, basename, splitext
 
-import time
 
-
+# Holds data on each state park.
 Park = namedtuple('Park', 'id, name, area')
 
 
@@ -44,10 +44,39 @@ def to_fetch(parks, output_dir):
     return todo, done
 
 
-def inspect_parks(parks):
+def inside_way(way):
+    """Get all the ways inside a given OSM way."""
+    query = """
+    way({});
+    map_to_area->.a;
+    way(area.a);
+    (._;>;);
+    out;
+    """.format(way.id)
+    api = overpy.Overpass()
+    return api.query(query)
+
+
+def inspect_park(park):
+    """Fetch OSM metrics for a park."""
+    contents = inside_way(park)
+    return {
+        'id': park.id,
+        'name': park.name,
+        'area': park.area,
+        'node_count': len(contents.nodes),
+        'way_count': len(contents.ways),
+    }
+
+
+def inspect_parks(parks, output_dir):
+    """Request data for each park, process it, and write it to disk."""
     bar = pyprind.ProgBar(len(parks))
     for park in pyprind.prog_bar(parks):
-        time.sleep(0.1)
+        data = inspect_park(park)
+        fn = join(output_dir, '{}.json'.format(park.id))
+        with open(fn, 'w') as f:
+            json.dump(data, f)
         bar.update(item_id=park.name[:20])
 
 
@@ -76,7 +105,7 @@ def main():
         done_msg = ' ({} already done)'.format(len(done))
     print('Inspecting {} parks{}'.format(len(todo), done_msg))
 
-    inspect_parks(todo)
+    inspect_parks(todo, args.output_dir)
 
 
 if __name__ == '__main__':
